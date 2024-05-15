@@ -1,0 +1,115 @@
+Define the Data Model
+Create a data model to represent the API response
+
+import Foundation
+
+struct DashboardResponse: Codable {
+let topLinks: [Link]
+let recentLinks: [Link]
+
+struct Link: Codable, Identifiable {
+let id: Int
+let url: String
+let title: String
+let clickCount: Int
+}
+}
+
+Network Manager for API Request
+Implement a network manager to fetch data from the API:
+
+import Foundation
+import Combine
+
+class DashboardViewModel: ObservableObject {
+@Published var dashboardData: DashboardResponse?
+
+private var cancellable: AnyCancellable?
+
+func loadDashboardData() {
+guard let url = URL(string: &quot;https://api.inopenapp.com/api/v1/dashboardNew&quot;) else { return }
+var request = URLRequest(url: url)
+
+request.setValue(&quot;Bearer
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MjU5MjcsImlhdCI6MTY3NDU1MDQ1MH0.dCkW0ox
+8tbjJA2GgUx2UEwNlbTZ7Rr38PVFJevYcXFI&quot;, forHTTPHeaderField: &quot;Authorization&quot;)
+
+cancellable = URLSession.shared.dataTaskPublisher(for: request)
+.map { $0.data }
+.decode(type: DashboardResponse.self, decoder: JSONDecoder())
+.replaceError(with: nil)
+.receive(on: DispatchQueue.main)
+.assign(to: \.dashboardData, on: self)
+}
+}
+SwiftUI View for the Dashboard
+Construct the main SwiftUI view:
+import SwiftUI
+
+struct DashboardView: View {
+@ObservedObject var viewModel = DashboardViewModel()
+
+var body: some View {
+NavigationView {
+VStack {
+TimeBasedGreeting()
+if let dashboardData = viewModel.dashboardData {
+DataChart(data: dashboardData)
+TabView {
+LinksListView(links: dashboardData.topLinks, header: &quot;Top Links&quot;)
+.tabItem { Label(&quot;Top Links&quot;, systemImage: &quot;star&quot;) }
+LinksListView(links: dashboardData.recentLinks, header: &quot;Recent Links&quot;)
+.tabItem { Label(&quot;Recent Links&quot;, systemImage: &quot;clock&quot;) }
+}
+} else {
+
+ProgressView(&quot;Loading Data...&quot;)
+}
+}
+.onAppear {
+viewModel.loadDashboardData()
+}
+.navigationTitle(&quot;Dashboard Overview&quot;)
+}
+}
+}
+
+struct TimeBasedGreeting: View {
+var body: some View {
+let currentHour = Calendar.current.component(.hour, from: Date())
+let greeting = currentHour &lt; 12 ? &quot;Good Morning&quot; : (currentHour &lt; 18 ? &quot;Good Afternoon&quot; :
+&quot;Good Evening&quot;)
+return Text(greeting)
+.font(.title)
+.padding()
+}
+}
+
+struct DataChart: View {
+let data: DashboardResponse
+
+var body: some View {
+// Integrate your chart library here, for example SwiftUICharts
+Text(&quot;Chart Display Here&quot;)
+.padding()
+}
+}
+
+struct LinksListView: View {
+let links: [DashboardResponse.Link]
+let header: String
+
+var body: some View {
+List(links) { link in
+VStack(alignment: .leading) {
+Text(link.title)
+.font(.headline)
+Text(link.url)
+.font(.subheadline)
+Text(&quot;Clicks: \(link.clickCount)&quot;)
+.font(.subheadline)
+}
+}
+.navigationTitle(header)
+}
+}
